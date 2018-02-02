@@ -31,7 +31,7 @@ class BLEDevicesViewController : UIViewController, CBCentralManagerDelegate, CBP
     var selectedDevice : CBPeripheral?
     var characteristicASCIIValue = NSString()
 
-    var projectZeroServices: [CBUUID] = [BLEService0_UUID, BLEService1_UUID, BLEService2_UUID, BLEService3_UUID]
+    var projectZeroServices: [CBUUID] = [Service0UUID, Service1UUID, Service2UUID, Service3UUID]
 
     @IBAction func refreshAction(_ sender: Any) {
         disconnectFromDevice()
@@ -47,11 +47,7 @@ class BLEDevicesViewController : UIViewController, CBCentralManagerDelegate, CBP
         self.deviceTable.dataSource = self
         self.deviceTable.reloadData()
 
-        /*Our key player in this app will be our CBCentralManager. CBCentralManager objects are used to manage discovered or connected remote peripheral devices (represented by CBPeripheral objects), including scanning for, discovering, and connecting to advertising peripherals.
-         */
         centralManager = CBCentralManager(delegate: self, queue: nil)
-        //let backButton = UIBarButtonItem(title: "Disconnect", style: .plain, target: nil, action: nil)
-        //navigationItem.backBarButtonItem = backButton
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -67,8 +63,8 @@ class BLEDevicesViewController : UIViewController, CBCentralManagerDelegate, CBP
         centralManager?.stopScan()
     }
 
-     /*Okay, now that we have our CBCentalManager up and running, it's time to start searching for devices. You can do this by calling the "scanForPeripherals" method.*/
 
+    // start scanning
     func startScan() {
         peripherals = []
         print("Now Scanning...")
@@ -77,7 +73,7 @@ class BLEDevicesViewController : UIViewController, CBCentralManagerDelegate, CBP
         Timer.scheduledTimer(timeInterval: 17, target: self, selector: #selector(self.cancelScan), userInfo: nil, repeats: false)
     }
 
-    /*We also need to stop scanning at some point so we'll also create a function that calls "stopScan"*/
+    //stop scan
     @objc func cancelScan() {
         self.centralManager?.stopScan()
         print("Scan Stopped")
@@ -89,29 +85,17 @@ class BLEDevicesViewController : UIViewController, CBCentralManagerDelegate, CBP
         deviceTable.reloadData()
     }
 
-    //-Terminate all Peripheral Connection
-    /*
-     Call this when things either go wrong, or you're done with the connection.
-     This cancels any subscriptions if there are any, or straight disconnects if not.
-     (didUpdateNotificationStateForCharacteristic will cancel the connection if a subscription is involved)
-     */
+    //Terminate Connection
     func disconnectFromDevice () {
         if selectedDevice != nil {
-            // We have a connection to the device but we are not subscribed to the Transfer Characteristic for some reason.
-            // Therefore, we will just disconnect from the peripheral
             centralManager?.cancelPeripheralConnection(selectedDevice!)
         }
     }
 
-
     func restoreCentralManager() {
-        //Restores Central Manager delegate if something went wrong
         centralManager?.delegate = self
     }
 
-    /*
-     Called when the central manager discovers a peripheral while scanning. Also, once peripheral is connected, cancel scanning.
-     */
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,advertisementData: [String : Any], rssi RSSI: NSNumber) {
 
         selectedDevice = peripheral
@@ -120,14 +104,11 @@ class BLEDevicesViewController : UIViewController, CBCentralManagerDelegate, CBP
         peripheral.delegate = self
         self.deviceTable.reloadData()
         if selectedDevice == nil {
-            print("Found new pheripheral devices with services")
+            print("New pheripheral devices with services")
             print("Peripheral name: \(String(describing: peripheral.name))")
-            print("**********************************")
             print ("Advertisement Data : \(advertisementData)")
         }
     }
-
-    //Peripheral Connections: Connecting, Connected, Disconnected
 
     //-Connection
     func connectToDevice () {
@@ -139,10 +120,6 @@ class BLEDevicesViewController : UIViewController, CBCentralManagerDelegate, CBP
         print(selectedDevice?.identifier as Any)
     }
 
-    /*
-     Invoked when a connection is successfully created with a peripheral.
-     This method is invoked when a call to connect(_:options:) is successful. You typically implement this method to set the peripheral’s delegate and to discover its services.
-     */
 
     //-Connected
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
@@ -150,7 +127,7 @@ class BLEDevicesViewController : UIViewController, CBCentralManagerDelegate, CBP
         print("Connection complete")
         print("Peripheral info: \(String(describing: selectedDevice))")
 
-        //Stop Scan- We don't need to scan once we've connected to a peripheral. We got what we came for.
+        //Stop Scan because we are already connected
         centralManager?.stopScan()
         print("Scan Stopped")
 
@@ -159,7 +136,6 @@ class BLEDevicesViewController : UIViewController, CBCentralManagerDelegate, CBP
 
         //Discovery callback
         peripheral.delegate = self
-        //Only look for services that matches transmit uuid
         //TODO: replace nil, with array of service UUIDs that we need to discover
         peripheral.discoverServices(nil)
 
@@ -193,10 +169,6 @@ class BLEDevicesViewController : UIViewController, CBCentralManagerDelegate, CBP
         centralManager.cancelPeripheralConnection(selectedDevice!)
     }
 
-    /*
-     Invoked when you discover the peripheral’s available services.
-     This method is invoked when your app calls the discoverServices(_:) method. If the services of the peripheral are successfully discovered, you can access them through the peripheral’s services property. If successful, the error parameter is nil. If unsuccessful, the error parameter returns the cause of the failure.
-     */
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         print("*******************************************************")
 
@@ -240,22 +212,6 @@ class BLEDevicesViewController : UIViewController, CBCentralManagerDelegate, CBP
         for characteristic in characteristics {
             //looks for the right characteristic
 
-            /*
-            if characteristic.uuid.isEqual(BLE_Characteristic_uuid_Rx)  {
-                rxCharacteristic = characteristic
-
-                //Once found, subscribe to the this particular characteristic...
-                peripheral.setNotifyValue(true, for: rxCharacteristic!)
-                // We can return after calling CBPeripheral.setNotifyValue because CBPeripheralDelegate's
-                // didUpdateNotificationStateForCharacteristic method will be called automatically
-                peripheral.readValue(for: characteristic)
-                print("Rx Characteristic: \(characteristic.uuid)")
-            }
-            if characteristic.uuid.isEqual(BLE_Characteristic_uuid_Tx){
-                txCharacteristic = characteristic
-                print("Tx Characteristic: \(characteristic.uuid)")
-            }
- */
             print("Characteristic: \(characteristic.uuid)")
             peripheral.discoverDescriptors(for: characteristic)
             print("value: \(peripheral.readValue(for: characteristic))")
@@ -342,10 +298,9 @@ class BLEDevicesViewController : UIViewController, CBCentralManagerDelegate, CBP
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         //Connect to device where the peripheral is connected
-        let cell = tableView.dequeueReusableCell(withIdentifier: "DeviceInfoCell") as! PeripheralTableViewCell
+        let cell = tableView.dequeueReusableCell(withIdentifier: "BLEDeviceInfoCell") as! PeripheralTableViewCell
         let peripheral = self.peripherals[indexPath.row]
         let RSSI = self.RSSIs[indexPath.row]
-
 
         if peripheral.name == nil {
             cell.peripheralLabel.text = "nil"
